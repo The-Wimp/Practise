@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Patient Dashboard</title>
+  <style>
+    body {
+      background-color: #eef2f3;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 30px;
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+
+    .header-right {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .logout-btn {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .logout-btn:hover {
+      background-color: #c0392b;
+    }
+
+    .update-btn {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .update-btn:hover {
+      background-color: #218838;
+    }
+
+    h2, h4 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    h4 {
+      margin-top: 30px;
+      color: #27ae60;
+    }
+
+    .list-group {
+      list-style: none;
+      padding: 0;
+    }
+
+    .list-group-item {
+      padding: 15px;
+      margin-bottom: 10px;
+      background-color: #f9f9f9;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      font-size: 16px;
+    }
+
+    .text-success {
+      color: #27ae60;
+      font-weight: bold;
+    }
+
+    .text-danger {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+
+    .text-warning {
+      color: #f39c12;
+      font-weight: bold;
+    }
+
+    canvas {
+      display: block;
+      margin: 30px auto;
+      max-width: 600px;
+    }
+
+    #healthMessage {
+      text-align: center;
+      font-size: 18px;
+      margin-top: 10px;
+    }
+
+    .last-updated {
+      text-align: right;
+      color: #777;
+      font-size: 14px;
+      margin-top: -10px;
+    }
+
+    .digilocker {
+      margin: 40px 0;
+    }
+
+    .digilocker ul {
+      padding: 0;
+    }
+
+    .digilocker li {
+      margin-bottom: 12px;
+    }
+
+    .delete-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 12px;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-right">
+      <div>
+        <a href="/logout" class="logout-btn">Logout</a>
+      </div>
+      <div>
+        <a href="/update_health" class="update-btn">Update Health</a>
+      </div>
+    </div>
+
+    <h2>Welcome, {{ user.Name }} ({{ user.PatientID }})</h2>
+    <div class="last-updated">
+      Last Updated: {{ user.LastUpdated }}
+    </div>
+
+    <h4>Your Health Summary</h4>
+    <ul class="list-group">
+      <li class="list-group-item"><strong>Age:</strong> {{ user.Age }}</li>
+      <li class="list-group-item"><strong>Gender:</strong> {{ user.Gender }}</li>
+      <li class="list-group-item"><strong>Blood Pressure:</strong> {{ user.SystolicBP }}/{{ user.DiastolicBP }} mmHg</li>
+      <li class="list-group-item"><strong>BMI:</strong> {{ user.BMI }}</li>
+      <li class="list-group-item"><strong>Glucose Level:</strong> {{ user.GlucoseLevel }} mg/dL</li>
+      <li class="list-group-item"><strong>SpO₂:</strong> {{ user.SpO2 }}%</li>
+      <li class="list-group-item"><strong>Pulse Rate:</strong> {{ user.PulseRate }} bpm</li>
+      <li class="list-group-item">
+        <strong>Diabetes Risk:</strong>
+        {% if user.Outcome == 1 %}
+          <span class="text-danger">At Risk</span>
+        {% else %}
+          <span class="text-success">Normal</span>
+        {% endif %}
+      </li>
+    </ul>
+
+    <!-- Health Index Bar Chart -->
+    <h4>🩺 Health Index</h4>
+    <canvas id="healthChart"></canvas>
+    <p id="healthMessage"></p>
+
+    <!-- Radar Chart -->
+    <h4>📊 Health Factors Overview</h4>
+    <canvas id="radarChart"></canvas>
+
+    <!-- Health Trend Section moved up -->
+    <h4>📈 Health Trend</h4>
+    <div style="text-align: center;">
+      <label for="trendSelect">Select Time Frame:</label>
+      <select id="trendSelect">
+        <option value="none">-- Select --</option>
+        <option value="7">Last 7 Days</option>
+        <option value="30">Last 30 Days</option>
+      </select>
+    </div>
+    <canvas id="trendChart" style="display:none; max-width: 100%; height: 400px;"></canvas>
+
+    <!-- Health DigiLocker moved to end -->
+    <h4>📁 Health DigiLocker</h4>
+    <div class="digilocker">
+      <form method="POST" enctype="multipart/form-data" action="/upload_file">
+        <input type="file" name="file" required>
+        <input type="text" name="description" placeholder="Enter description (e.g., ECG, Blood Report)" required>
+        <button class="update-btn" type="submit">Upload</button>
+      </form>
+      <ul>
+        {% for file in uploaded_files %}
+          <li>
+            <a href="{{ file.url }}" target="_blank">📄 {{ file.name }}</a> — {{ file.description }}
+            <form method="POST" action="/delete_file" style="display:inline;">
+              <input type="hidden" name="filename" value="{{ file.name }}">
+              <button type="submit" class="delete-btn">Delete</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      const healthIndex = Number("{{ health_index }}");
+      const averageIndex = 68.5;
+      const idealIndex = 85;
+
+      const ctx = document.getElementById("healthChart").getContext("2d");
+      const healthMessage = document.getElementById("healthMessage");
+
+      if (healthIndex >= 75) {
+        healthMessage.innerHTML = `<span class="text-success">✅ Great! Your health index is ${healthIndex}. You are in good health.</span>`;
+      } else if (healthIndex >= 50) {
+        healthMessage.innerHTML = `<span class="text-warning">⚠️ Caution! Your health index is ${healthIndex}. Monitor your vitals.</span>`;
+      } else {
+        healthMessage.innerHTML = `<span class="text-danger">❌ Alert! Your health index is ${healthIndex}. Medical attention may be needed.</span>`;
+      }
+
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['You', 'Average', 'Ideal'],
+          datasets: [{
+            label: 'Health Index',
+            data: [healthIndex, averageIndex, idealIndex],
+            backgroundColor: ['#3498db', '#f1c40f', '#2ecc71'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100
+            }
+          }
+        }
+      });
+
+      const trendSelect = document.getElementById("trendSelect");
+      const trendChartCanvas = document.getElementById("trendChart");
+      let trendChartInstance = null;
+
+      trendSelect.addEventListener("change", function() {
+        const selected = trendSelect.value;
+        if (selected === "none") {
+          trendChartCanvas.style.display = "none";
+          return;
+        }
+
+        fetch(`/get_trend_data?days=${selected}`)
+          .then(res => res.json())
+          .then(data => {
+            trendChartCanvas.style.display = "block";
+            if (trendChartInstance) trendChartInstance.destroy();
+            trendChartInstance = new Chart(trendChartCanvas.getContext("2d"), {
+              type: 'line',
+              data: {
+                labels: data.labels,
+                datasets: [{
+                  label: 'Health Index Over Time',
+                  data: data.values,
+                  fill: false,
+                  borderColor: '#2980b9',
+                  tension: 0.3,
+                  pointBackgroundColor: '#2980b9'
+                }]
+              },
+              options: {
+                responsive: true,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    max: 100
+                  }
+                }
+              }
+            });
+          });
+      });
+    </script>
+  </div>
+</body>
+</html>
